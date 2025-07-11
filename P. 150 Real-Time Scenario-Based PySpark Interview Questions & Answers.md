@@ -1871,5 +1871,1068 @@ df.withColumn("rank", row_number().over(windowSpec))
 
 ---
 
+Great! Here's **Batch 11 (Q101–110)** of **real-time PySpark interview questions with detailed answers**:
+
+---
+
+### **101. How do you handle corrupted records while reading JSON or CSV in PySpark?**
+
+**Answer:**
+
+Use the **`badRecordsPath`** or **`mode`** options when reading files:
+
+**For JSON:**
+
+```python
+df = spark.read.option("badRecordsPath", "/path/to/bad/records") \
+               .json("input_data.json")
+```
+
+**For CSV:**
+
+```python
+df = spark.read.option("mode", "PERMISSIVE") \
+               .option("columnNameOfCorruptRecord", "_corrupt_record") \
+               .csv("input_data.csv")
+```
+
+**Modes available:**
+
+* `PERMISSIVE` (default): keeps corrupted records in a separate column
+* `DROPMALFORMED`: skips corrupted records
+* `FAILFAST`: fails the job on encountering bad data
+
+---
+
+### **102. What is salting and when do you use it in PySpark?**
+
+**Answer:**
+
+**Salting** is used to handle **data skew** during joins or aggregations when one key has disproportionately more data.
+
+**Example:**
+If key `India` has 80% of records, join will skew.
+
+**Fix:**
+
+1. Add random salt key:
+
+   ```python
+   df1 = df1.withColumn("salt", expr("floor(rand() * 10)"))
+   ```
+
+2. Duplicate small dataset with same salt values.
+
+3. Join on key + salt.
+
+---
+
+### **103. What’s the difference between `persist()` and `cache()` in PySpark?**
+
+**Answer:**
+
+| Feature  | `cache()`                | `persist()`                          |
+| -------- | ------------------------ | ------------------------------------ |
+| Storage  | MEMORY\_ONLY             | Custom (e.g., MEMORY\_AND\_DISK)     |
+| Use case | When data fits in memory | When data may not fit in memory      |
+| Control  | No                       | Yes – choose storage level           |
+| Syntax   | `df.cache()`             | `df.persist(StorageLevel.DISK_ONLY)` |
+
+`cache()` is shorthand for `persist(StorageLevel.MEMORY_ONLY)`
+
+---
+
+### **104. How do you read from and write to S3 in PySpark?**
+
+**Answer:**
+
+**Read:**
+
+```python
+df = spark.read.csv("s3a://my-bucket/input.csv")
+```
+
+**Write:**
+
+```python
+df.write.parquet("s3a://my-bucket/output/")
+```
+
+**Configuration:**
+Ensure Hadoop AWS JAR and keys are set:
+
+```python
+spark._jsc.hadoopConfiguration().set("fs.s3a.access.key", "<ACCESS_KEY>")
+spark._jsc.hadoopConfiguration().set("fs.s3a.secret.key", "<SECRET_KEY>")
+```
+
+Also use IAM role in EMR for safer auth.
+
+---
+
+### **105. What is the role of Catalyst Optimizer in PySpark SQL?**
+
+**Answer:**
+
+The **Catalyst Optimizer** is the engine behind Spark SQL that optimizes execution plans.
+
+**Stages:**
+
+1. **Analyzing** logical plan
+2. **Optimizing** expressions (constant folding, predicate pushdown)
+3. **Physical plan generation**
+4. **Code generation** (Tungsten)
+
+It improves performance without needing manual tuning.
+
+---
+
+### **106. What are accumulators in PySpark and when should you use them?**
+
+**Answer:**
+
+**Accumulators** are write-only shared variables used for counting or aggregating across workers.
+
+**Example:**
+
+```python
+accum = sc.accumulator(0)
+
+rdd.foreach(lambda x: accum.add(1))
+print(accum.value)
+```
+
+Used for:
+
+* Counting errors
+* Logging metrics
+
+⚠️ Not reliable if accessed outside actions (e.g., inside `map()` only).
+
+---
+
+### **107. Explain serialization in PySpark.**
+
+**Answer:**
+
+Serialization allows Spark to **transmit data or code between nodes**.
+
+**Two options:**
+
+* **Java serialization**: default, robust but slower
+* **Kryo serialization**: faster, must register custom classes
+
+Set Kryo:
+
+```python
+conf.set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
+```
+
+Use when:
+
+* You have large objects or custom classes
+* Want lower memory footprint
+
+---
+
+### **108. How do you manage dependencies (e.g., Python packages) in a PySpark EMR job?**
+
+**Answer:**
+
+Options:
+
+1. **Bootstrap Actions**: install packages on EMR at startup:
+
+   ```bash
+   sudo pip3 install requests pandas
+   ```
+
+2. **`--py-files`** option:
+
+   * Package `.py` or `.zip` and upload to S3
+   * Use in `spark-submit`:
+
+     ```bash
+     spark-submit --py-files my_utils.zip main.py
+     ```
+
+3. **Conda/virtualenv** in EMR or Docker container
+
+4. Use **AWS EMR steps** and `emr_add_steps()` in Airflow
+
+---
+
+### **109. How do you filter rows based on multiple complex conditions in PySpark?**
+
+**Answer:**
+
+Use chained `when()` and logical operators:
+
+```python
+df.filter(
+    (col("age") > 18) &
+    (col("country") == "India") |
+    (col("score") > 80)
+)
+```
+
+Or using `expr()` for SQL-like syntax:
+
+```python
+df.filter(expr("age > 18 AND (country = 'India' OR score > 80)"))
+```
+
+---
+
+### **110. What is the use of `explain()` in PySpark?**
+
+**Answer:**
+
+`explain()` prints the **logical and physical execution plan** of a DataFrame.
+
+Usage:
+
+```python
+df.explain(True)
+```
+
+Gives insights into:
+
+* Filters pushed down
+* Shuffle operations
+* Join strategies
+* Caching
+
+Helps **optimize transformations** and debug performance.
+
+---
+
+Great! Here's **Batch 12 (Q111–120)** of **real-time PySpark interview questions with detailed answers**:
+
+---
+
+### **111. How do you handle schema evolution in PySpark, especially with Parquet or Snowflake data sources?**
+
+**Answer:**
+
+**Schema evolution** means allowing changes in schema (new columns, type changes) without breaking jobs.
+
+In **Parquet**, enable:
+
+```python
+df = spark.read.option("mergeSchema", "true").parquet("path")
+```
+
+For **Snowflake**, handle using:
+
+* SELECT specific known columns
+* Use **`inferSchema`**, or explicitly define schema
+* For unknown columns: load to `Row`, or infer schema dynamically using Pandas
+
+In PySpark jobs:
+
+* Use `StructType` with nullable=True
+* Add versioning logic if schema drift is frequent
+
+---
+
+### **112. What’s the difference between `coalesce()` and `repartition()`?**
+
+| Feature        | `coalesce(n)`                   | `repartition(n)`              |
+| -------------- | ------------------------------- | ----------------------------- |
+| Shuffles data? | ❌ No (narrow transformation)    | ✅ Yes (wide transformation)   |
+| When to use    | Reduce number of partitions     | Increase number of partitions |
+| Performance    | Faster for shrinking partitions | Better for load balancing     |
+| Example        | `df.coalesce(2)`                | `df.repartition(10)`          |
+
+Use **`coalesce()`** when decreasing partitions and **`repartition()`** when increasing or rebalancing partitions.
+
+---
+
+### **113. What are window functions in PySpark? Give an example.**
+
+**Answer:**
+
+Window functions perform **calculations across rows related to the current row** (e.g., rank, lag).
+
+Example:
+
+```python
+from pyspark.sql.window import Window
+from pyspark.sql.functions import row_number
+
+window_spec = Window.partitionBy("dept").orderBy("salary")
+df.withColumn("rank", row_number().over(window_spec)).show()
+```
+
+Common functions:
+
+* `row_number()`
+* `rank()`
+* `dense_rank()`
+* `lag()`, `lead()`
+
+---
+
+### **114. How do you write a PySpark DataFrame to partitioned files in S3?**
+
+**Answer:**
+
+Use `.partitionBy()` during write:
+
+```python
+df.write.partitionBy("country", "year").parquet("s3a://bucket/output/")
+```
+
+It will create:
+
+```
+s3a://bucket/output/country=India/year=2023/...
+```
+
+Useful for Athena/Presto queries and optimized scans.
+
+---
+
+### **115. How do you optimize performance when working with very large DataFrames?**
+
+**Answer:**
+
+* **Persist() or cache()** to avoid recomputation
+* Use **broadcast joins** for small lookup tables
+* Avoid **wide transformations** (e.g., groupByKey)
+* Use **repartition()** for better parallelism
+* Push filters early (`filter()` before `join`)
+* **Use DataFrame APIs**, not RDDs
+* Enable **predicate and column pruning**
+
+---
+
+### **116. Explain how PySpark handles DAG and job stages.**
+
+**Answer:**
+
+PySpark builds a **DAG (Directed Acyclic Graph)** for every job:
+
+* DAG shows **stages of transformations** and dependencies
+* **Lazy evaluation** builds DAG but doesn’t run it
+* When an **action** is triggered (e.g., `.collect()`), Spark:
+
+  * Breaks DAG into **stages** (based on shuffles)
+  * Launches **tasks** per partition in each stage
+  * Executes stages in **topological order**
+
+View DAG in Spark UI: `<driver-ip>:4040`
+
+---
+
+### **117. How do you implement slowly changing dimensions (SCD Type 2) in PySpark?**
+
+**Answer:**
+
+Steps for SCD Type 2:
+
+1. **Join** incoming data with historical table on business key
+2. Identify **new and changed rows**
+3. For changed rows:
+
+   * **Expire** old record (set `end_date`)
+   * **Insert** new record with `start_date`, `current_flag = Y`
+4. For new rows: insert directly
+
+Use `window` and `row_number()` to deduplicate.
+
+---
+
+### **118. Explain how checkpointing works in PySpark Streaming.**
+
+**Answer:**
+
+**Checkpointing** helps recover from failures by saving:
+
+* Metadata (lineage info)
+* Data (RDD contents, state)
+
+In Structured Streaming:
+
+```python
+query = df.writeStream \
+    .format("parquet") \
+    .option("checkpointLocation", "/path/to/checkpoint") \
+    .start("/path/output/")
+```
+
+Required for:
+
+* **Stateful operations**
+* **Fault tolerance**
+
+It writes to HDFS/S3/DBFS.
+
+---
+
+### **119. How do you test PySpark code locally before deploying to EMR?**
+
+**Answer:**
+
+Steps:
+
+1. Use **`SparkSession.builder.master("local[*]")`**
+2. Write **unit tests** with `pytest` or `unittest`
+3. Use **mock data** with `createDataFrame()`
+4. Enable **log level WARN** to reduce noise
+5. Write **integration test pipeline** in local mode
+
+Example:
+
+```python
+def test_transformation():
+    spark = SparkSession.builder.master("local[*]").appName("Test").getOrCreate()
+    df = spark.createDataFrame([(1, "India")], ["id", "country"])
+    result = transform(df)
+    assert result.count() == 1
+```
+
+---
+
+### **120. How do you trigger PySpark jobs via Airflow DAGs?**
+
+**Answer:**
+
+Use **`BashOperator`** or **`EmrAddStepsOperator`**:
+
+Example with Bash:
+
+```python
+BashOperator(
+    task_id='run_pyspark_job',
+    bash_command='spark-submit /path/to/script.py',
+    dag=dag
+)
+```
+
+Or with EMR:
+
+```python
+EmrAddStepsOperator(
+    task_id='add_steps',
+    job_flow_id='{{ task_instance.xcom_pull("create_cluster") }}',
+    steps=steps,
+    aws_conn_id='aws_default',
+    dag=dag
+)
+```
+
+Can pass parameters dynamically using Jinja templating.
+
+---
+
+Awesome! Here's **Batch 13 (Q121–130)** of real-time PySpark interview questions with detailed answers:
+
+---
+
+### **121. What’s the difference between `persist()` and `cache()` in PySpark?**
+
+**Answer:**
+
+Both are used to store RDD/DataFrame in memory to avoid recomputation.
+
+* `cache()` is shorthand for `persist(StorageLevel.MEMORY_AND_DISK)`
+* `persist()` gives more control over storage levels
+
+Example:
+
+```python
+df.cache()  # stores in memory
+df.persist(StorageLevel.DISK_ONLY)  # stores only on disk
+```
+
+Use `persist()` when dataset is too large to fit in memory.
+
+---
+
+### **122. How do you identify and resolve data skew in PySpark joins?**
+
+**Answer:**
+
+**Identify:**
+
+* Monitor skewed stage in Spark UI (long tail tasks)
+* Check value frequency in join keys
+
+**Resolve:**
+
+* **Salting technique**: Add random prefix to skewed keys
+* **Broadcast join** if one side is small
+* Filter/aggregate before join
+* Repartition by join key
+
+Example:
+
+```python
+from pyspark.sql.functions import rand, concat
+df = df.withColumn("salt", (rand() * 10).cast("int"))
+df = df.withColumn("join_key_salted", concat(df.key, df.salt))
+```
+
+---
+
+### **123. How do you handle missing or null values in PySpark?**
+
+**Answer:**
+
+* **Drop nulls**:
+
+  ```python
+  df.dropna()
+  df.na.drop(subset=["col1"])
+  ```
+* **Fill with default value**:
+
+  ```python
+  df.fillna({"col1": 0, "col2": "unknown"})
+  ```
+* **Replace specific values**:
+
+  ```python
+  df.replace("NA", None)
+  ```
+
+You can also use `when().otherwise()` for conditional replacements.
+
+---
+
+### **124. What is Catalyst Optimizer in Spark?**
+
+**Answer:**
+
+The **Catalyst Optimizer** is Spark’s **query optimization framework**.
+
+It applies:
+
+* **Logical optimizations** (predicate pushdown, constant folding)
+* **Physical optimizations** (join selection, code generation)
+* **Rule-based transformations** for efficient execution
+
+Benefits:
+
+* Faster execution
+* Automatic optimization
+* Better performance for SQL/DataFrame APIs
+
+---
+
+### **125. How do you create and use Broadcast Variables in PySpark?**
+
+**Answer:**
+
+Used to share **read-only lookup data** across all workers efficiently.
+
+```python
+broadcastVar = sc.broadcast({"IN": "India", "US": "United States"})
+
+rdd = sc.parallelize(["IN", "US"])
+rdd.map(lambda x: broadcastVar.value.get(x)).collect()
+```
+
+Reduces shuffling and memory usage for repeated lookups.
+
+---
+
+### **126. How do you monitor PySpark job performance?**
+
+**Answer:**
+
+Key Tools:
+
+* **Spark UI** (`localhost:4040`)
+* **YARN UI** for EMR/Hadoop
+* **Ganglia/CloudWatch** for EMR
+
+Check:
+
+* Stages & tasks timeline
+* Shuffle read/write
+* Skewed tasks
+* Memory/storage levels
+* DAG visualizations
+
+Tune using:
+
+* Repartitioning
+* Caching
+* Join strategy optimization
+
+---
+
+### **127. What are Accumulators in PySpark?**
+
+**Answer:**
+
+**Accumulators** are **write-only shared variables** used for aggregations across workers (e.g., counters, sums).
+
+```python
+acc = sc.accumulator(0)
+rdd.foreach(lambda x: acc.add(1))
+print(acc.value)
+```
+
+Good for debugging and metrics; not suitable for returning values from tasks.
+
+---
+
+### **128. How do you implement Retry logic for Spark job failures in Airflow?**
+
+**Answer:**
+
+In `BashOperator` or `SparkSubmitOperator`, configure:
+
+```python
+BashOperator(
+    task_id='spark_job',
+    bash_command='spark-submit job.py',
+    retries=3,
+    retry_delay=timedelta(minutes=5),
+    dag=dag
+)
+```
+
+Airflow will retry on failure after specified delay.
+
+Also use `TriggerRule` and `on_failure_callback` for more control.
+
+---
+
+### **129. How do you write unit tests for PySpark code?**
+
+**Answer:**
+
+Use `pytest` or `unittest`.
+
+Steps:
+
+* Create test SparkSession with `.master("local[*]")`
+* Prepare mock input DataFrame
+* Run your logic
+* Assert output DataFrame schema/values
+
+Example:
+
+```python
+def test_sum():
+    spark = SparkSession.builder.master("local[*]").appName("test").getOrCreate()
+    df = spark.createDataFrame([(1,2)], ["a","b"])
+    result = df.withColumn("c", col("a") + col("b"))
+    assert result.select("c").collect()[0][0] == 3
+```
+
+---
+
+### **130. How do you handle real-time data ingestion from Kafka in PySpark?**
+
+**Answer:**
+
+Use **Structured Streaming** with Kafka source:
+
+```python
+df = spark.readStream.format("kafka") \
+    .option("kafka.bootstrap.servers", "host:port") \
+    .option("subscribe", "topic1") \
+    .load()
+
+df_parsed = df.selectExpr("CAST(value AS STRING)")
+```
+
+Then transform and write:
+
+```python
+df_parsed.writeStream \
+    .format("parquet") \
+    .option("checkpointLocation", "/chkpt/") \
+    .start("/output/")
+```
+
+Supports watermarking, aggregations, windowing.
+
+---
+
+Great! Here's **Batch 14 (Q131–140)** of PySpark real-time scenario-based interview questions with detailed answers:
+
+---
+
+### **131. How do you debug a failing Spark job in production?**
+
+**Answer:**
+
+1. **Check Spark UI logs**:
+
+   * Look for failed stages, tasks, and shuffle operations.
+   * Review error stack trace from logs.
+
+2. **Validate inputs**:
+
+   * Are paths accessible? Files corrupted or empty?
+
+3. **Check memory/storage**:
+
+   * Monitor executor memory, GC logs, and data skew.
+
+4. **Isolate the issue**:
+
+   * Use `sample()`, test with smaller partitions.
+
+5. **Enable logs**:
+
+   ```python
+   spark.sparkContext.setLogLevel("DEBUG")
+   ```
+
+6. **Use `.explain()`** for transformation lineage and `.show()` at checkpoints.
+
+---
+
+### **132. Explain the role of `.explain()` and `.debug()` in PySpark.**
+
+**Answer:**
+
+* `.explain()` displays the **logical and physical execution plan** of a DataFrame. Helps understand Catalyst Optimizer decisions.
+
+```python
+df.select("col1").groupBy("col1").count().explain(True)
+```
+
+* `.debug()` isn't a PySpark method. For debugging, use:
+
+  * Logs, `printSchema()`
+  * Intermediate `.show()`, `.collect()`
+  * `df.rdd.toDebugString()` (on RDDs)
+
+---
+
+### **133. How do you handle schema evolution in PySpark with sources like Snowflake or JSON?**
+
+**Answer:**
+
+1. **For JSON/Parquet**:
+
+   * Use `mergeSchema=True` during read
+
+   ```python
+   spark.read.option("mergeSchema", "true").parquet(path)
+   ```
+
+2. **Snowflake**:
+
+   * Read metadata and compare with DataFrame schema
+   * Dynamically create missing columns with `withColumn()`
+
+3. **Generic approach**:
+
+   * Maintain versioned schemas
+   * Use flexible schema reads with `StructType().add()` logic
+
+---
+
+### **134. How do you implement Slowly Changing Dimensions (SCD Type 2) in PySpark?**
+
+**Answer:**
+
+1. Read current dimension table and new data.
+2. Join on business key.
+3. Compare attribute changes.
+4. For changes:
+
+   * Expire old record (`end_date`, `is_active=False`)
+   * Insert new version (`start_date`, `is_active=True`)
+5. Use `union()` and write back.
+
+Advanced:
+
+* Use Delta Lake `MERGE INTO` or manually manage history with partitioned writes.
+
+---
+
+### **135. How do you automate daily Spark jobs on AWS EMR using Airflow?**
+
+**Answer:**
+
+* Use `EmrAddStepsOperator` and `EmrStepSensor`:
+
+```python
+EmrAddStepsOperator(
+    job_flow_id='j-xxxxxxx',
+    steps=[step_config],
+    task_id='add_emr_steps'
+)
+
+EmrStepSensor(
+    task_id='watch_step',
+    job_flow_id='j-xxxxxxx',
+    step_id="{{ task_instance.xcom_pull('add_emr_steps', key='return_value')[0] }}"
+)
+```
+
+* Schedule DAG using cron.
+* Store outputs in S3 and track checkpoints.
+
+---
+
+### **136. How do you manage secrets (Snowflake, PostgreSQL creds) securely in PySpark on AWS?**
+
+**Answer:**
+
+**Use AWS Secrets Manager**:
+
+* Store DB creds
+* Access via Boto3 in Spark job
+
+```python
+import boto3, json
+sm = boto3.client('secretsmanager')
+secret = json.loads(sm.get_secret_value(SecretId='my-secret')['SecretString'])
+```
+
+Avoid hardcoding. Set secrets as environment variables or pass through Airflow connections securely.
+
+---
+
+### **137. Describe a pipeline you built with EMR, Airflow, and PySpark.**
+
+**Answer:**
+
+Typical architecture:
+
+1. Triggered daily Airflow DAG
+2. `EMRCreateClusterOperator` launches EMR
+3. `SparkSubmitOperator` or EMR steps run PySpark
+4. Jobs read from S3/Web API, process using PySpark
+5. Data written back to S3 in Parquet format
+6. Cluster auto-terminated
+7. Monitored using logs + CloudWatch + Slack alerts
+
+---
+
+### **138. How do you perform deduplication in PySpark?**
+
+**Answer:**
+
+* Based on a subset of columns:
+
+```python
+df.dropDuplicates(["id", "date"])
+```
+
+* Keep latest based on timestamp:
+
+```python
+from pyspark.sql.window import Window
+w = Window.partitionBy("id").orderBy(col("timestamp").desc())
+df = df.withColumn("rn", row_number().over(w)).filter("rn = 1")
+```
+
+---
+
+### **139. What are some anti-patterns in PySpark?**
+
+**Answer:**
+
+* Using UDFs excessively instead of built-in functions
+* Collecting large data with `.collect()` or `.toPandas()`
+* Writing small files → file explosion
+* Using `repartition()` blindly
+* Not caching reused DataFrames
+* Broadcasting large data accidentally
+* Ignoring data skew and joins optimizations
+
+---
+
+### **140. What’s the difference between `row_number()` and `rank()` window functions?**
+
+**Answer:**
+
+| Function       | Description                           | Gaps in Rank? |
+| -------------- | ------------------------------------- | ------------- |
+| `row_number()` | Assigns unique incrementing number    | ❌ No gaps     |
+| `rank()`       | Same value gets same rank, next skips | ✅ Yes (1,1,3) |
+| `dense_rank()` | Same value gets same rank, no skips   | ❌ No (1,1,2)  |
+
+Used in deduplication, top-N filtering, and SCD logic.
+
+---
+
+
+Perfect! Here's **Batch 15 (Q141–150)** of PySpark real-time interview questions with detailed answers:
+
+---
+
+### **141. How do you optimize a PySpark job that’s taking too long on EMR?**
+
+**Answer:**
+Optimization checklist:
+
+* **Repartition**: Avoid unnecessary shuffles, use `.repartition()` or `.coalesce()` wisely.
+* **Broadcast smaller datasets** during joins:
+
+  ```python
+  broadcast(df_small)
+  ```
+* **Cache reused DataFrames** to avoid recomputation:
+
+  ```python
+  df.cache()
+  ```
+* **Avoid UDFs** where possible — prefer Spark SQL functions.
+* **Tune EMR settings**: executor memory, core count, dynamic allocation.
+* **Profile using Spark UI**: detect skew, GC overhead, or failed stages.
+
+---
+
+### **142. What causes data skew in PySpark and how do you fix it?**
+
+**Answer:**
+**Causes**:
+
+* One key has significantly more data than others.
+* Common in joins, groupBy, or aggregations.
+
+**Fixes**:
+
+* **Salting**: Add random prefix to key
+* **Skew join optimization**: Broadcast the smaller table
+* **Custom partitioning**
+* Use `approxQuantile()` to detect skew
+
+---
+
+### **143. How do you implement incremental data load in PySpark?**
+
+**Answer:**
+
+1. Identify unique timestamp or incremental ID field.
+2. Store last processed value.
+3. On next run, read only newer data:
+
+   ```python
+   df.filter(col("updated_at") > last_processed_time)
+   ```
+4. Save checkpoint or metadata (in DB/S3).
+5. Append new data or upsert (merge).
+
+---
+
+### **144. How do you upsert (merge) data in PySpark without Delta Lake?**
+
+**Answer:**
+
+1. Read existing data.
+2. Join with new data.
+3. Separate updated, new, and unchanged rows.
+4. Union the result.
+5. Overwrite old partition or full table:
+
+   ```python
+   final_df.write.mode("overwrite").parquet(path)
+   ```
+
+Delta Lake makes this easier using `MERGE INTO`.
+
+---
+
+### **145. Explain a case when you had to deal with schema mismatch.**
+
+**Answer:**
+In one case, a schema in Snowflake changed — a column type was altered.
+
+**Approach**:
+
+* Read Snowflake table schema using `DESCRIBE`.
+* Cast PySpark columns accordingly.
+* Add missing columns with `withColumn("col", lit(None))`.
+* Used `selectExpr()` to align columns before union.
+
+---
+
+### **146. How do you handle late arriving data in streaming?**
+
+**Answer:**
+
+1. Use **Watermarking**:
+
+   ```python
+   .withWatermark("event_time", "10 minutes")
+   ```
+
+2. Use **Windowed Aggregation** to handle out-of-order events.
+
+3. Store raw events in Bronze layer (e.g., S3) for replay if needed.
+
+4. Retry logic on ingestion layer (Kafka, API, etc.)
+
+---
+
+### **147. What are some best practices for using PySpark on AWS EMR?**
+
+**Answer:**
+
+* Use **spot instances** + on-demand core.
+* Enable **auto-scaling**.
+* Store data in **S3 Parquet** with partitioning.
+* Monitor with **CloudWatch + Spark UI logs**.
+* Configure **bootstrap actions** for custom setup.
+* Avoid small files (file explosion).
+* Tune executor memory, cores, dynamic allocation.
+
+---
+
+### **148. How do you recover a failed stage in Spark?**
+
+**Answer:**
+
+* Spark retries failed stages **4 times by default**.
+* If persistent failure:
+
+  * Use logs to find corrupt input or transformation logic.
+  * Retry after isolating faulty record (use `.foreach()` for granular check).
+* Can recover from checkpoints (streaming).
+
+---
+
+### **149. Explain Catalyst Optimizer in Spark.**
+
+**Answer:**
+
+**Catalyst** is Spark SQL's query optimization framework. It applies:
+
+1. **Logical plan optimization** (push filters, prune columns).
+2. **Physical plan optimization** (choose join strategy, broadcast).
+3. **Code generation** via **Tungsten** for better execution.
+
+Used internally in:
+
+* SQL queries
+* DataFrame/Dataset APIs
+
+---
+
+### **150. What are common causes of out-of-memory errors in Spark?**
+
+**Answer:**
+
+* **Large shuffles** during wide transformations (join, groupBy).
+* **Improper partitioning**: Too few = large partitions.
+* **Broadcasting large datasets**.
+* **Not caching selectively**.
+* **Skewed data** overloading one executor.
+
+**Fix**:
+
+* Tune `spark.executor.memory`, GC settings.
+* Use salting, repartitioning, broadcasting carefully.
+
+---
+
+
+
+
 
 
